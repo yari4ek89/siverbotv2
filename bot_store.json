@@ -1,0 +1,69 @@
+{
+  "settings": {
+    "mode": "auto",
+    "targetChannel": "@testchanleo",
+    "allowedRegions": [
+      "sumy",
+      "chernihiv"
+    ],
+    "dedupWindowMin": 60,
+    "alertsEnabled": true,
+    "alertsChannel": "@testchanleo",
+    "alertsIncludeTime": false,
+    "__awaiting": null
+  },
+  "sources": [
+    "@dfsfdsfdsfas"
+  ],
+  "dedup": {
+    "d4bb715515f03132f1db712419dea0b816a443418c709abccf9c0f14c40579ec": 1771103549015,
+    "57674204e2867714fddc6505a9d68d949645ce2ad00ba9dc902eed44d75ccf9f": 1771103619532,
+    "de409173c9e7ef4c55a911dd06d4923e0282dea42ed795b445a3ec0840f7b3d7": 1771103640593,
+    "4138abd95aeb54d04c875e3037170df6a02db1941db7e44abb60383201012350": 1771103704395,
+    "05f74b20e34307c13816c1ee46f8d18cf40f06ba735df097d43995ec68635ce2": 1771103745251,
+    "7a992e03d20b74cce90cc1bed6c5c396c809ff01481a41e79b21038db5807abf": 1771103784465,
+    "fde580c71b12fe84c603376b482e3d6b75e9469aa0055894d679d5f2e9714bd7": 1771103930134,
+    "056044939a69ef6f0d8c910f56272ab0231d162ac812ba494dfa001d75460c50": 1771103946407,
+    "e1ed22e8057b5e5197d96437677574443e43da32a42f5e453c5389b550654ed4": 1771104530074,
+    "8c39bee8b18d1fedeb0d5ca9aea9e74430c4ed1e721dc15df9d68a761aab590c": 1771104564213,
+    "ac51174382eeb4bdb7c7a4e6722a6cfa5bea6d1cb2b98dbeff6ed6597af2f770": 1771104597775,
+    "6a774018d025c40bfcb7cc53f6d13c34dafa61e3d50bd74ee6e60b1e932696c1": 1771105593671
+  },
+  "queue": {
+    "1": {
+      "id": 1,
+      "source": "@dfsfdsfdsfas",
+      "rawText": "UPD 01:37. БПЛА з Курської обл. курс на Конотоп / Сумщина",
+      "formattedText": "🛸 . БПЛА з Курської обл. курс на Конотоп / Сумщина.",
+      "createdAt": 1771103534714,
+      "status": "approved"
+    },
+    "2": {
+      "id": 2,
+      "source": "@dfsfdsfdsfas",
+      "rawText": "Дрон на Ніжин від Куликівки",
+      "formattedText": "🛸 Дрон на Ніжин від Куликівки.",
+      "createdAt": 1771103612503,
+      "status": "approved"
+    },
+    "3": {
+      "id": 3,
+      "source": "@dfsfdsfdsfas",
+      "rawText": "Ракета повз Ніжин на Київ",
+      "formattedText": "🚀 Ракета повз Ніжин на Київ.",
+      "createdAt": 1771103634892,
+      "status": "approved"
+    },
+    "4": {
+      "id": 4,
+      "source": "@dfsfdsfdsfas",
+      "rawText": "Табун дронів на Бахмач",
+      "formattedText": "🛸 Табун дронів на Бахмач.",
+      "createdAt": 1771103700240,
+      "status": "approved"
+    }
+  },
+  "seq": {
+    "queueId": 5
+  }
+}
