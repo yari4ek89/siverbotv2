@@ -1,4 +1,15 @@
 import crypto from 'node:crypto';
+import { PLACES } from './places_ua.js';
+
+function norm(s) {
+  return String(s || '')
+  .toLowerCase()
+  .replace(/ё/g,'е')
+  .replace(/[’'`]/g,'')
+  .replace(/[^a-zа-яіїє0-9\s-]/gi,' ')
+  .replace(/\s+/g,' ')
+  .trim();
+}
 
 export function normalizeText(raw) {
   if (!raw) return '';
@@ -48,12 +59,39 @@ const REGION_KEYWORDS = {
   ],
 };
 
-export function detectRegions(text) {
-  const t = (text || '').toLowerCase();
+export function detectRegions(text, extraPlaces = null) {
+  const norm = (s) => String(s || '')
+  .toLowerCase()
+  .replace(/ё/g, 'е')
+  .replace(/[’'`]/g, '')
+  .replace(/[^a-zа-яіїє0-9\s-]/gi, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
+
+  const t0 = norm(text);
+  const t = ` ${t0} `;
+
   const found = new Set();
+
+  // базовые ключи
   for (const [region, keys] of Object.entries(REGION_KEYWORDS)) {
-    if (keys.some(k => t.includes(k))) found.add(region);
+    if (keys.some(k => t0.includes(k))) found.add(region);
   }
+
+  // добавленные плейсы из store (если передали)
+  if (extraPlaces && typeof extraPlaces === 'object') {
+    for (const region of ['chernihiv', 'sumy']) {
+      const list = Array.isArray(extraPlaces[region]) ? extraPlaces[region] : [];
+      for (const p of list) {
+        const key = ` ${norm(p)} `;
+        if (key.length > 3 && t.includes(key)) {
+          found.add(region);
+          break;
+        }
+      }
+    }
+  }
+
   return [...found];
 }
 
@@ -81,7 +119,7 @@ function cleanupPlace(s) {
     .trim();
 }
 
-export function buildPost(rawText) {
+export function buildPost(rawText, { sourceName = '', showSource = false } = {}) {
   const normalized = normalizeText(rawText);
   const emoji = detectThreatEmoji(normalized);
   const label = detectThreatLabel(normalized);
@@ -99,7 +137,17 @@ export function buildPost(rawText) {
   core = core.replace(/[.\s]+$/g, '').trim();
   if (core.length > 220) core = core.slice(0, 217) + '…';
 
-  return `${emoji} ${label}: ${capitalizeFirst(core)}.`;
+  let out = `${emoji} ${label}: ${capitalizeFirst(core)}.`;
+
+  const src = String(sourceName || '').trim();
+  if (showSource && src) {
+    const plainSource = String(sourceName || '')
+    .replace(/^@/, '')          // убираем @
+    .replace(/_/g, '\\_');      // на всякий случай (если markdown)
+    out += `\n\nℹ️ Джерело: ${plainSource}`;
+  }
+
+  return out;
 }
 
 function detectThreatLabel(text) {

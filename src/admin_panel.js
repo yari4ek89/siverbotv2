@@ -76,6 +76,17 @@ export function registerAdminPanel({ bot, store, adminId }) {
       return;
     }
     store.updateSettings({ mode: arg });
+    try {
+      const target = settingsAfter.targetChannel; // важно: берем уже обновлённые settings
+      if (target) {
+        const txt = (settingsAfter.mode === 'auto')
+        ? '🟢 Режим: AUTO — публікація без підтвердження.'
+        : '🟡 Режим: MANUAL — публікація тільки після підтвердження.';
+        await bot.telegram.sendMessage(target, txt, { disable_web_page_preview: true });
+      }
+    } catch (e) {
+      console.log('[panel] mode notify failed:', e?.message || e);
+    }
     await ctx.reply(`Mode set to: ${arg}`);
   });
 
@@ -122,6 +133,80 @@ export function registerAdminPanel({ bot, store, adminId }) {
     await ctx.reply(ok ? `Видалено: ${norm}` : `Не знайдено: ${norm}`);
   });
 
+  // ---- Places ----
+  bot.command('places', async (ctx) => {
+    if (!ctx.state.__isAdmin) return;
+    const arg = (ctx.message.text.split(' ')[1] || '').trim().toLowerCase();
+
+    if (!arg) {
+      const ch = store.listPlaces('chernihiv');
+      const su = store.listPlaces('sumy');
+      await ctx.reply(
+        `Places:\n` +
+        `• chernihiv: ${ch.length}\n` +
+        `• sumy: ${su.length}\n\n` +
+        `Показати список: /places chernihiv або /places sumy`
+      );
+      return;
+    }
+
+    if (arg !== 'chernihiv' && arg !== 'sumy') {
+      await ctx.reply('Регіон тільки: chernihiv або sumy');
+      return;
+    }
+
+    const list = store.listPlaces(arg);
+    if (!list.length) {
+      await ctx.reply(`Список порожній для ${arg}. Додай: /place_add ${arg} Назва`);
+      return;
+    }
+
+    // чтобы не упираться в лимиты, режем на куски
+    const chunk = 150;
+    for (let i = 0; i < list.length; i += chunk) {
+      await ctx.reply(list.slice(i, i + chunk).join('\n'));
+    }
+  });
+
+  bot.command('place_add', async (ctx) => {
+    if (!ctx.state.__isAdmin) return;
+    const parts = ctx.message.text.split(' ').slice(1);
+    const region = (parts.shift() || '').trim().toLowerCase();
+    const place = parts.join(' ').trim();
+
+    if (!region || !place) {
+      await ctx.reply('Використання: /place_add chernihiv Остер');
+      return;
+    }
+    if (region !== 'chernihiv' && region !== 'sumy') {
+      await ctx.reply('Регіон тільки: chernihiv або sumy');
+      return;
+    }
+
+    const ok = store.addPlace(region, place);
+    await ctx.reply(ok ? `✅ Додано в ${region}: ${place}` : '❌ Не вдалося додати');
+  });
+
+  bot.command('place_del', async (ctx) => {
+    if (!ctx.state.__isAdmin) return;
+    const parts = ctx.message.text.split(' ').slice(1);
+    const region = (parts.shift() || '').trim().toLowerCase();
+    const place = parts.join(' ').trim();
+
+    if (!region || !place) {
+      await ctx.reply('Використання: /place_del chernihiv Остер');
+      return;
+    }
+    if (region !== 'chernihiv' && region !== 'sumy') {
+      await ctx.reply('Регіон тільки: chernihiv або sumy');
+      return;
+    }
+
+    const ok = store.removePlace(region, place);
+    await ctx.reply(ok ? `🗑️ Видалено з ${region}: ${place}` : `Не знайдено: ${place}`);
+  });
+
+
   bot.command('target', async (ctx) => {
     if (!ctx.state.__isAdmin) return;
     await ctx.reply('Введи target канал (наприклад @siverradar) одним повідомленням:');
@@ -149,6 +234,81 @@ export function registerAdminPanel({ bot, store, adminId }) {
     ctx.state.__manualApproveId = id;
     await ctx.reply(`Ок, approve #${id} через кнопку краще, але можу й командою. Пиши /do_approve ${id}`);
   });
+
+  bot.command('pending', async (ctx) => {
+    if (!ctx.state.__isAdmin) return;
+    const n = store.queueCountPending ? store.queueCountPending() : 0;
+    await ctx.reply(`📌 Pending: ${n}`);
+  });
+
+  bot.command('approve_all', async (ctx) => {
+    if (!ctx.state.__isAdmin) return;
+
+    const arg = (ctx.message.text.split(' ')[1] || '').trim();
+    const limit = arg ? Math.max(1, Math.min(200, Number(arg) || 0)) : 200;
+
+    const items = store.queueListPending ? store.queueListPending(limit) : [];
+    if (!items.length) {
+      await ctx.reply('Pending пусто.');
+      return;
+    }
+
+    const settings = store.getSettings();
+    const target = settings.targetChannel;
+    if (!target) {
+      await ctx.reply('❌ targetChannel не задан. Задай в админке.');
+      return;
+    }
+
+    let ok = 0, fail = 0;
+    for (const it of items.reverse()) { // oldest -> newest
+      try {
+        await bot.telegram.sendMessage(target, it.formattedText, { disable_web_page_preview: true });
+        store.queueSetStatus(it.id, 'approved');
+        ok++;
+      } catch (e) {
+        fail++;
+        // чтобы не стопорить всё из-за одной ошибки
+        console.log('[panel] approve_all send fail:', it.id, e?.message || e);
+      }
+    }
+
+    await ctx.reply(`✅ approve_all: отправлено ${ok}, ошибок ${fail}, лимит ${limit}`);
+  });
+
+  bot.command('reject_all', async (ctx) => {
+    if (!ctx.state.__isAdmin) return;
+
+    const arg = (ctx.message.text.split(' ')[1] || '').trim();
+    const limit = arg ? Math.max(1, Math.min(500, Number(arg) || 0)) : 500;
+
+    const items = store.queueListPending ? store.queueListPending(limit) : [];
+    if (!items.length) {
+      await ctx.reply('Pending пусто.');
+      return;
+    }
+
+    for (const it of items) {
+      store.queueSetStatus(it.id, 'rejected');
+    }
+
+    await ctx.reply(`🗑️ reject_all: отклонено ${items.length}, лимит ${limit}`);
+  });
+
+  bot.command('source_tag', async (ctx) => {
+    if (!ctx.state.__isAdmin) return;
+    const arg = (ctx.message.text.split(' ')[1] || '').trim().toLowerCase();
+
+    if (!['on','off'].includes(arg)) {
+      await ctx.reply('Використання: /source_tag on або /source_tag off');
+      return;
+    }
+
+    const settings = store.updateSettings({ showSource: arg === 'on' });
+    await ctx.reply(`ℹ️ Джерело в постах: ${settings.showSource ? 'ON' : 'OFF'}`);
+  });
+
+
 
   // quick command to avoid parsing issues
   bot.command('do_approve', async (ctx) => {
